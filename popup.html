@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="popup.css" />
+    <title>SPJIMR Timetable</title>
+  </head>
+  <body>
+    <header class="header">
+      <h1 class="title">Timetable</h1>
+      <div class="actions">
+        <button id="export" class="action-btn" title="Export this week (.ics)">
+          Export
+        </button>
+        <button id="refresh" class="action-btn" title="Refresh">
+          <span class="refresh-icon" aria-hidden="true">&#x21bb;</span>
+          Refresh
+        </button>
+      </div>
+    </header>
+    <nav class="weeknav">
+      <button id="prevWeek" class="nav-btn" title="Previous week">&#x2039;</button>
+      <div id="weekLabel" class="week-label"></div>
+      <button id="nextWeek" class="nav-btn" title="Next week">&#x203a;</button>
+    </nav>
+    <div id="updated" class="updated"></div>
+    <main id="content" class="content"></main>
+    <script src="popup.js"></script>
+  </body>
+</html>
