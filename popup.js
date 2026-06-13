@@ -123,9 +123,11 @@ function buildMandatoryRules(rows) {
     const sessionsRaw = (r[2] || "").trim();
     if (!code && !subject) continue;
     if (code.toLowerCase() === "short code") continue; // header row
-    const sessions = sessionsRaw
-      ? new Set(sessionsRaw.split(",").map((s) => s.trim()).filter(Boolean))
-      : null; // empty → whole subject is mandatory
+    if (!sessionsRaw || sessionsRaw.toUpperCase() === "NA") continue; // blank/NA → not mandatory
+    const sessions =
+      sessionsRaw.toUpperCase() === "ALL"
+        ? null // ALL → every session mandatory
+        : new Set(sessionsRaw.split(",").map((s) => s.trim()).filter(Boolean));
     rules.push({ code: code.toUpperCase(), subject: subject.toUpperCase(), sessions });
   }
   return rules;
