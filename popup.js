@@ -206,19 +206,17 @@ function renderClass(cls) {
   }
   body.appendChild(subject);
 
-  if (cls.shortcode) {
-    const shortcode = document.createElement("div");
-    shortcode.className = "class-shortcode";
-    shortcode.textContent = cls.shortcode;
-    body.appendChild(shortcode);
-  }
+  const meta1 = document.createElement("div");
+  meta1.className = "class-meta";
+  meta1.textContent = [cls.shortcode, cls.faculty].filter(Boolean).join(" · ");
+  body.appendChild(meta1);
 
-  const meta = document.createElement("div");
-  meta.className = "class-meta";
-  const parts = [cls.faculty, cls.room];
-  if (cls.sessionNumber) parts.push(`Session ${cls.sessionNumber}`);
-  meta.textContent = parts.filter(Boolean).join(" · ");
-  body.appendChild(meta);
+  const meta2 = document.createElement("div");
+  meta2.className = "class-meta";
+  const locationParts = [cls.room];
+  if (cls.sessionNumber) locationParts.push(`Session ${cls.sessionNumber}`);
+  meta2.textContent = locationParts.filter(Boolean).join(" · ");
+  body.appendChild(meta2);
 
   row.appendChild(body);
   return row;
