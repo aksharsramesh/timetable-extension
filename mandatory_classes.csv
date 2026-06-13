@@ -1,3 +1,8 @@
-﻿Short Code,Subject Name,Mandatory Classes
-OLS541-PBM,Management of Change,"3,5"
-BS (STR520-PBM),Business & Society,4
+﻿Spec,Short Code,Subject Name,Mandatory Classes
+GEN,GEN,General Event,ALL
+Strat,OLS541-PBM,Management of Change,"1,2,11,14"
+Strat,BS (STR520-PBM),Business & Society,"9,10"
+Core,OLS524-PBM,Capitalism and Its Critics: A History,NA
+IM,INF554-PDM,Agentic AI,"6,11,12,13,14,15,16,17,18"
+IM,ANA544-PDM,"Text, Image and Video Analytics using AI","9,15"
+IM,INF529-PDM,Transformation Through Cloud and Edge Computing,"4,5,6,11,12,13,16,17,18"

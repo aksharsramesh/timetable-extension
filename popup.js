@@ -118,9 +118,9 @@ function parseCSV(text) {
 function buildMandatoryRules(rows) {
   const rules = [];
   for (const r of rows) {
-    const code = (r[0] || "").trim();
-    const subject = (r[1] || "").trim();
-    const sessionsRaw = (r[2] || "").trim();
+    const code = (r[1] || "").trim();
+    const subject = (r[2] || "").trim();
+    const sessionsRaw = (r[3] || "").trim();
     if (!code && !subject) continue;
     if (code.toLowerCase() === "short code") continue; // header row
     if (!sessionsRaw || sessionsRaw.toUpperCase() === "NA") continue; // blank/NA → not mandatory
