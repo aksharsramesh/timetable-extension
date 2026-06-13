@@ -64,6 +64,9 @@ OLS541-PBM, Management of Change, "3,5"
 ```
 
 - **Short Code / Subject Name** — either one works to identify the subject
-- **Mandatory Classes** — session numbers to mark (e.g. `"3,5"`). Leave blank to mark all sessions as mandatory.
+- **Mandatory Classes** — controls which sessions are marked:
+  - `ALL` — every session of that subject is mandatory
+  - `"3,5"` — only sessions 3 and 5 are mandatory
+  - blank or `NA` — nothing is marked mandatory (the row is ignored)
 
 After editing the CSV, reload the extension at `chrome://extensions`.
