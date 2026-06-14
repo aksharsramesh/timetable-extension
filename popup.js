@@ -198,8 +198,12 @@ function renderClass(cls) {
   const mandatory = isMandatory(cls);
 
   const row = document.createElement("div");
-  // Quizzes use a badge only (no row highlight); mandatory classes get the highlight.
-  row.className = mandatory && !quiz ? "class class--mandatory" : "class";
+  // Quizzes get their own (red) highlighted card; mandatory classes get the amber one.
+  row.className = quiz
+    ? "class class--quiz"
+    : mandatory
+      ? "class class--mandatory"
+      : "class";
 
   const time = document.createElement("div");
   time.className = "class-time";
@@ -211,17 +215,21 @@ function renderClass(cls) {
 
   const subject = document.createElement("div");
   subject.className = "class-subject";
-  subject.textContent = cls.subject;
   if (quiz) {
-    const tag = document.createElement("span");
-    tag.className = "tag-quiz";
-    tag.textContent = "Quiz";
-    subject.appendChild(tag);
-  } else if (mandatory) {
-    const tag = document.createElement("span");
-    tag.className = "tag-mandatory";
-    tag.textContent = "Mandatory";
-    subject.appendChild(tag);
+    // Plain red "QUIZ " prefix (no bubble), then the subject name.
+    const prefix = document.createElement("span");
+    prefix.className = "quiz-prefix";
+    prefix.textContent = "QUIZ ";
+    subject.appendChild(prefix);
+    subject.appendChild(document.createTextNode(cls.subject));
+  } else {
+    subject.textContent = cls.subject;
+    if (mandatory) {
+      const tag = document.createElement("span");
+      tag.className = "tag-mandatory";
+      tag.textContent = "Mandatory";
+      subject.appendChild(tag);
+    }
   }
   body.appendChild(subject);
 
