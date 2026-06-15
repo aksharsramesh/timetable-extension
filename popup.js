@@ -158,6 +158,18 @@ function isMandatory(cls) {
   return false;
 }
 
+// A session is a quiz when slot_remarks (carried in sessionNumber) mentions "quiz".
+function isQuiz(cls) {
+  return /quiz/i.test(String(cls.sessionNumber || ""));
+}
+
+// "Quiz 1" for quizzes, "Session 3" for normal classes, "" if no remark.
+function sessionLabel(cls) {
+  const s = String(cls.sessionNumber || "").trim();
+  if (!s) return "";
+  return isQuiz(cls) ? s : `Session ${s}`;
+}
+
 function showState(text) {
   updatedEl.textContent = "";
   contentEl.innerHTML = "";
@@ -182,10 +194,16 @@ function formatDayHeading(daytype, isoDate) {
 }
 
 function renderClass(cls) {
+  const quiz = isQuiz(cls);
   const mandatory = isMandatory(cls);
 
   const row = document.createElement("div");
-  row.className = mandatory ? "class class--mandatory" : "class";
+  // Quizzes get their own (red) highlighted card; mandatory classes get the amber one.
+  row.className = quiz
+    ? "class class--quiz"
+    : mandatory
+      ? "class class--mandatory"
+      : "class";
 
   const time = document.createElement("div");
   time.className = "class-time";
@@ -197,12 +215,21 @@ function renderClass(cls) {
 
   const subject = document.createElement("div");
   subject.className = "class-subject";
-  subject.textContent = cls.subject;
-  if (mandatory) {
-    const tag = document.createElement("span");
-    tag.className = "tag-mandatory";
-    tag.textContent = "Mandatory";
-    subject.appendChild(tag);
+  if (quiz) {
+    // Plain red "QUIZ " prefix (no bubble), then the subject name.
+    const prefix = document.createElement("span");
+    prefix.className = "quiz-prefix";
+    prefix.textContent = "QUIZ ";
+    subject.appendChild(prefix);
+    subject.appendChild(document.createTextNode(cls.subject));
+  } else {
+    subject.textContent = cls.subject;
+    if (mandatory) {
+      const tag = document.createElement("span");
+      tag.className = "tag-mandatory";
+      tag.textContent = "Mandatory";
+      subject.appendChild(tag);
+    }
   }
   body.appendChild(subject);
 
@@ -214,7 +241,8 @@ function renderClass(cls) {
   const meta2 = document.createElement("div");
   meta2.className = "class-meta";
   const locationParts = [cls.room];
-  if (cls.sessionNumber) locationParts.push(`Session ${cls.sessionNumber}`);
+  const label = sessionLabel(cls);
+  if (label) locationParts.push(label);
   meta2.textContent = locationParts.filter(Boolean).join(" · ");
   body.appendChild(meta2);
 
@@ -348,11 +376,12 @@ function buildICS(classes) {
     const uid =
       `${cls.date}-${cls.startTime}-${cls.shortcode}`.replace(/[^a-zA-Z0-9-]/g, "") +
       "@spjimr-timetable";
-    const mandatory = isMandatory(cls);
+    const quiz = isQuiz(cls);
+    const mandatory = isMandatory(cls) || quiz; // quizzes are treated as mandatory
     const desc = [
       cls.shortcode,
       cls.faculty,
-      cls.sessionNumber ? `Session ${cls.sessionNumber}` : "",
+      sessionLabel(cls),
       mandatory ? "[Mandatory]" : "",
     ]
       .filter(Boolean)
@@ -363,14 +392,30 @@ function buildICS(classes) {
     lines.push(`DTSTAMP:${stamp}`);
     lines.push(`DTSTART:${icsDateTime(cls.date, cls.startTime)}`);
     lines.push(`DTEND:${icsDateTime(cls.date, cls.endTime)}`);
-    lines.push(`SUMMARY:${icsEscape(mandatory ? "★ " + cls.subject : cls.subject)}`);
+    const summary = quiz
+      ? "📝 Quiz — " + cls.subject
+      : mandatory
+        ? "★ " + cls.subject
+        : cls.subject;
+    lines.push(`SUMMARY:${icsEscape(summary)}`);
     if (cls.room) lines.push(`LOCATION:${icsEscape(cls.room)}`);
     if (desc) lines.push(`DESCRIPTION:${icsEscape(desc)}`);
     if (mandatory) {
       // RFC 7986 per-event color (honored by Apple Calendar & others; Google
-      // ignores it on import — the ★ prefix + category are the fallback).
+      // ignores it on import — the ★/📝 prefix + category are the fallback).
       lines.push("COLOR:tomato");
       lines.push("CATEGORIES:MANDATORY");
+    }
+    if (quiz) {
+      lines.push("CATEGORIES:QUIZ");
+      // Remind half a day and one hour before the quiz.
+      for (const trigger of ["-PT12H", "-PT1H"]) {
+        lines.push("BEGIN:VALARM");
+        lines.push("ACTION:DISPLAY");
+        lines.push("DESCRIPTION:Quiz reminder");
+        lines.push(`TRIGGER:${trigger}`);
+        lines.push("END:VALARM");
+      }
     }
     lines.push("END:VEVENT");
   }

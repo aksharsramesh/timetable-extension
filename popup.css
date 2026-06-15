@@ -12,8 +12,10 @@
   --absent-fg: #b42318;
   --notmarked-bg: #f1f1f4;
   --notmarked-fg: #5b6170;
-  --mandatory: #e0533d;
-  --mandatory-soft: #fdf1ef;
+  --mandatory: #d97706;
+  --mandatory-soft: #fff7ed;
+  --quiz: #dc2626;
+  --quiz-soft: #fef2f2;
 }
 
 * {
@@ -195,6 +197,13 @@ body {
   background: var(--mandatory-soft);
 }
 
+.class--quiz {
+  border-left: 3px solid var(--quiz);
+  padding-left: 8px;
+  margin-left: -8px;
+  background: var(--quiz-soft);
+}
+
 .class-body {
   min-width: 0;
 }
@@ -209,6 +218,13 @@ body {
   border-radius: 999px;
   background: var(--mandatory);
   color: #fff;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.quiz-prefix {
+  color: var(--quiz);
+  font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.03em;
 }
