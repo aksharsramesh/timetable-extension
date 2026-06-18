@@ -170,6 +170,12 @@ function sessionLabel(cls) {
   return isQuiz(cls) ? s : `Session ${s}`;
 }
 
+// Just the digits from the session remark: "3" -> "3", "Quiz 1" -> "1", "" -> "".
+function sessionNumberOnly(cls) {
+  const m = String(cls.sessionNumber || "").match(/\d+/);
+  return m ? m[0] : "";
+}
+
 function showState(text) {
   updatedEl.textContent = "";
   contentEl.innerHTML = "";
@@ -392,11 +398,15 @@ function buildICS(classes) {
     lines.push(`DTSTAMP:${stamp}`);
     lines.push(`DTSTART:${icsDateTime(cls.date, cls.startTime)}`);
     lines.push(`DTEND:${icsDateTime(cls.date, cls.endTime)}`);
+    const num = sessionNumberOnly(cls);
+    const namePart = num ? `S${num}: ${cls.subject}` : cls.subject;
     const summary = quiz
-      ? "📝 Quiz — " + cls.subject
+      ? num
+        ? `Quiz ${num}: ${cls.subject}`
+        : `Quiz: ${cls.subject}`
       : mandatory
-        ? "★ " + cls.subject
-        : cls.subject;
+        ? "★ " + namePart
+        : namePart;
     lines.push(`SUMMARY:${icsEscape(summary)}`);
     if (cls.room) lines.push(`LOCATION:${icsEscape(cls.room)}`);
     if (desc) lines.push(`DESCRIPTION:${icsEscape(desc)}`);
