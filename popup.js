@@ -170,10 +170,13 @@ function sessionLabel(cls) {
   return isQuiz(cls) ? s : `Session ${s}`;
 }
 
-// Just the digits from the session remark: "3" -> "3", "Quiz 1" -> "1", "" -> "".
+// The session number, only when the remark *is* one: "3" -> "3", "Session 3" ->
+// "3", "Quiz 1" -> "1". Free-text remarks (e.g. general events like
+// "BATCH MEET ... 2.30 PM") return "" so we don't mistake a stray digit for a
+// session number.
 function sessionNumberOnly(cls) {
-  const m = String(cls.sessionNumber || "").match(/\d+/);
-  return m ? m[0] : "";
+  const m = String(cls.sessionNumber || "").trim().match(/^(?:session\s*|quiz\s*)?(\d+)$/i);
+  return m ? m[1] : "";
 }
 
 function showState(text) {
