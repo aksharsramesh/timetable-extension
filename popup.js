@@ -7,6 +7,8 @@ const weekLabelEl = document.getElementById("weekLabel");
 const prevBtn = document.getElementById("prevWeek");
 const nextBtn = document.getElementById("nextWeek");
 const exportBtn = document.getElementById("export");
+const syncBtn = document.getElementById("sync");
+const syncStatusEl = document.getElementById("syncStatus");
 
 // 0 = current week, -1 = last week, +1 = next week, etc.
 let weekOffset = 0;
@@ -187,6 +189,7 @@ function showState(text) {
   contentEl.innerHTML = "";
   currentClasses = [];
   exportBtn.disabled = true;
+  syncBtn.disabled = true;
   const el = document.createElement("div");
   el.className = "state";
   el.textContent = text;
@@ -272,6 +275,7 @@ function renderTimetable(classes, lastUpdated) {
 
   currentClasses = classes;
   exportBtn.disabled = false;
+  syncBtn.disabled = false;
 
   // Group by date, preserving the already-sorted order.
   const groups = [];
@@ -333,6 +337,39 @@ function load(force) {
   );
 }
 
+// --- shared event semantics (used by both .ics export and Google sync) --------
+
+// Stable per-class id so re-exporting / re-syncing updates rather than duplicates.
+function eventUID(cls) {
+  return (
+    `${cls.date}-${cls.startTime}-${cls.shortcode}`.replace(/[^a-zA-Z0-9-]/g, "") +
+    "@spjimr-timetable"
+  );
+}
+
+// Title with quiz / mandatory (★) / session (S<n>:) prefixes. Quiz wins over ★.
+function eventSummary(cls) {
+  const quiz = isQuiz(cls);
+  const mandatory = isMandatory(cls) || quiz; // quizzes are treated as mandatory
+  const num = sessionNumberOnly(cls);
+  const namePart = num ? `S${num}: ${cls.subject}` : cls.subject;
+  return quiz
+    ? num
+      ? `Quiz ${num}: ${cls.subject}`
+      : `Quiz: ${cls.subject}`
+    : mandatory
+      ? "★ " + namePart
+      : namePart;
+}
+
+// shortcode / faculty / session / [Mandatory], newline-joined.
+function eventDescription(cls) {
+  const mandatory = isMandatory(cls) || isQuiz(cls);
+  return [cls.shortcode, cls.faculty, sessionLabel(cls), mandatory ? "[Mandatory]" : ""]
+    .filter(Boolean)
+    .join("\n");
+}
+
 // --- .ics export -------------------------------------------------------------
 
 // Escape per RFC 5545 (backslash, semicolon, comma, newline).
@@ -385,35 +422,16 @@ function buildICS(classes) {
   for (const cls of classes) {
     if (!cls.date || !cls.startTime || !cls.endTime) continue;
 
-    const uid =
-      `${cls.date}-${cls.startTime}-${cls.shortcode}`.replace(/[^a-zA-Z0-9-]/g, "") +
-      "@spjimr-timetable";
     const quiz = isQuiz(cls);
     const mandatory = isMandatory(cls) || quiz; // quizzes are treated as mandatory
-    const desc = [
-      cls.shortcode,
-      cls.faculty,
-      sessionLabel(cls),
-      mandatory ? "[Mandatory]" : "",
-    ]
-      .filter(Boolean)
-      .join("\n");
+    const desc = eventDescription(cls);
 
     lines.push("BEGIN:VEVENT");
-    lines.push(`UID:${uid}`);
+    lines.push(`UID:${eventUID(cls)}`);
     lines.push(`DTSTAMP:${stamp}`);
     lines.push(`DTSTART:${icsDateTime(cls.date, cls.startTime)}`);
     lines.push(`DTEND:${icsDateTime(cls.date, cls.endTime)}`);
-    const num = sessionNumberOnly(cls);
-    const namePart = num ? `S${num}: ${cls.subject}` : cls.subject;
-    const summary = quiz
-      ? num
-        ? `Quiz ${num}: ${cls.subject}`
-        : `Quiz: ${cls.subject}`
-      : mandatory
-        ? "★ " + namePart
-        : namePart;
-    lines.push(`SUMMARY:${icsEscape(summary)}`);
+    lines.push(`SUMMARY:${icsEscape(eventSummary(cls))}`);
     if (cls.room) lines.push(`LOCATION:${icsEscape(cls.room)}`);
     if (desc) lines.push(`DESCRIPTION:${icsEscape(desc)}`);
     if (mandatory) {
@@ -452,6 +470,65 @@ function downloadICS(filename, content) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+// --- Google Calendar sync ----------------------------------------------------
+
+// "2026-06-15" + "10:40" → "2026-06-15T10:40:00" (paired with timeZone below).
+function googleDateTime(date, time) {
+  const [h, m] = time.split(":");
+  return `${date}T${h.padStart(2, "0")}:${m.padStart(2, "0")}:00`;
+}
+
+// Map classes to Google Calendar `events.import` resource bodies. iCalUID matches
+// the .ics UID so repeated syncs update events in place instead of duplicating.
+function buildGoogleEvents(classes) {
+  const events = [];
+  for (const cls of classes) {
+    if (!cls.date || !cls.startTime || !cls.endTime) continue;
+    const quiz = isQuiz(cls);
+    const mandatory = isMandatory(cls) || quiz; // quizzes are treated as mandatory
+
+    const event = {
+      iCalUID: eventUID(cls),
+      summary: eventSummary(cls),
+      // TCS iON times are IST — pin the zone so Google places them correctly.
+      start: { dateTime: googleDateTime(cls.date, cls.startTime), timeZone: "Asia/Kolkata" },
+      end: { dateTime: googleDateTime(cls.date, cls.endTime), timeZone: "Asia/Kolkata" },
+    };
+    if (cls.room) event.location = cls.room;
+    const desc = eventDescription(cls);
+    if (desc) event.description = desc;
+    if (mandatory) event.colorId = "11"; // tomato
+    if (quiz) {
+      // Remind half a day and one hour before (mirrors the .ics VALARMs).
+      event.reminders = {
+        useDefault: false,
+        overrides: [
+          { method: "popup", minutes: 720 },
+          { method: "popup", minutes: 60 },
+        ],
+      };
+    }
+    events.push(event);
+  }
+  return events;
+}
+
+function showSyncStatus(text, kind) {
+  syncStatusEl.textContent = text || "";
+  syncStatusEl.className = "sync-status" + (kind ? ` sync-status--${kind}` : "");
+}
+
+function describeSyncResult(res) {
+  if (!res) return "";
+  if (res.error) return `Sync failed: ${res.error}`;
+  const when = res.at
+    ? new Date(res.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+    : "";
+  const failed = res.failed ? `, ${res.failed} failed` : "";
+  const n = res.imported || 0;
+  return `Synced ${n} event${n === 1 ? "" : "s"}${failed}${when ? ` · ${when}` : ""}`;
+}
+
 // --- wiring ------------------------------------------------------------------
 
 prevBtn.addEventListener("click", () => {
@@ -467,6 +544,34 @@ exportBtn.addEventListener("click", () => {
   if (!currentClasses.length) return;
   const week = getWeekRange(weekOffset);
   downloadICS(`spjimr-timetable-${week.startdateTS}.ics`, buildICS(currentClasses));
+});
+syncBtn.addEventListener("click", () => {
+  if (!currentClasses.length) return;
+  const events = buildGoogleEvents(currentClasses);
+  if (!events.length) {
+    showSyncStatus("Nothing to sync for this week.");
+    return;
+  }
+  syncBtn.disabled = true;
+  showSyncStatus("Syncing to Google Calendar…");
+  chrome.runtime.sendMessage({ action: "syncGoogleCalendar", events }, (res) => {
+    syncBtn.disabled = false;
+    if (chrome.runtime.lastError || !res) {
+      // The popup can close when the consent window grabs focus, dropping this
+      // callback. The background script persists the outcome — show it on reopen.
+      showSyncStatus("Sync in progress — reopen the popup to see the result.", "warn");
+      return;
+    }
+    showSyncStatus(describeSyncResult(res), res.error ? "error" : "ok");
+  });
+});
+
+// Surface the result of the previous sync (e.g. one that finished after the
+// popup closed during first-time consent).
+chrome.storage.local.get(["lastGoogleSync"]).then(({ lastGoogleSync }) => {
+  if (lastGoogleSync) {
+    showSyncStatus(describeSyncResult(lastGoogleSync), lastGoogleSync.error ? "error" : "ok");
+  }
 });
 
 // Load the mandatory-classes CSV first, then fetch the timetable so the very

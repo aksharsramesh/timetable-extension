@@ -3,8 +3,11 @@
   "name": "SPJIMR Timetable",
   "version": "1.0",
   "description": "Shows this week's SPJIMR classes grouped by day, using your live TCS iON session.",
-  "permissions": ["storage"],
-  "host_permissions": ["https://g21.tcsion.com/*"],
+  "permissions": ["storage", "identity"],
+  "host_permissions": [
+    "https://g21.tcsion.com/*",
+    "https://www.googleapis.com/*"
+  ],
   "action": {
     "default_popup": "popup.html",
     "default_title": "SPJIMR Timetable",
