@@ -36,6 +36,8 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px;
   padding: 12px 14px 8px;
   border-bottom: 1px solid var(--line);
   position: sticky;
@@ -68,6 +70,11 @@ body {
   padding: 4px 10px;
   border-radius: 6px;
   cursor: pointer;
+  white-space: nowrap;
+}
+
+.google-icon {
+  flex-shrink: 0;
 }
 
 .action-btn:hover {
