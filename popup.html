@@ -10,6 +10,9 @@
     <header class="header">
       <h1 class="title">Timetable</h1>
       <div class="actions">
+        <button id="sync" class="action-btn" title="Sync this week to Google Calendar">
+          Sync
+        </button>
         <button id="export" class="action-btn" title="Export this week (.ics)">
           Export
         </button>
@@ -25,6 +28,7 @@
       <button id="nextWeek" class="nav-btn" title="Next week">&#x203a;</button>
     </nav>
     <div id="updated" class="updated"></div>
+    <div id="syncStatus" class="sync-status"></div>
     <main id="content" class="content"></main>
     <script src="popup.js"></script>
   </body>

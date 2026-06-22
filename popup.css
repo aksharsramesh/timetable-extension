@@ -152,6 +152,29 @@ body {
   display: none;
 }
 
+.sync-status {
+  padding: 4px 14px 0;
+  font-size: 11px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.sync-status:empty {
+  display: none;
+}
+
+.sync-status--ok {
+  color: var(--present-fg);
+}
+
+.sync-status--warn {
+  color: var(--mandatory);
+}
+
+.sync-status--error {
+  color: var(--absent-fg);
+}
+
 .content {
   padding: 6px 14px 14px;
   max-height: 460px;
