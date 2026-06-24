@@ -496,9 +496,9 @@ function buildGoogleEvents(classes) {
     if (cls.room) event.location = cls.room;
     const desc = eventDescription(cls);
     if (desc) event.description = desc;
-    // Quizzes → tomato (red); other mandatory classes → tangerine (amber).
+    // Quizzes → tomato (red); other mandatory classes → banana (yellow).
     if (quiz) event.colorId = "11";
-    else if (isMandatory(cls)) event.colorId = "6";
+    else if (isMandatory(cls)) event.colorId = "5";
     if (quiz) {
       // Remind half a day and one hour before (mirrors the .ics VALARMs).
       event.reminders = {
