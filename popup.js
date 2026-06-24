@@ -147,12 +147,14 @@ async function loadMandatoryRules() {
 function isMandatory(cls) {
   const sc = String(cls.shortcode || "").trim().toUpperCase();
   const subj = String(cls.subject || "").trim().toUpperCase();
-  const sess = String(cls.sessionNumber || "").trim();
+  // Match the CSV session list against the extracted number ("12 simulation" ->
+  // "12", "11-Guest" -> "11"), not the raw remark, so qualified sessions still match.
+  const sess = sessionNumberOnly(cls);
   for (const rule of mandatoryRules) {
     const codeMatch = sc && rule.code && rule.code.includes(sc);
     const subjMatch = subj && rule.subject && rule.subject === subj;
     if (codeMatch || subjMatch) {
-      if (rule.sessions === null || rule.sessions.has(sess)) return true;
+      if (rule.sessions === null || (sess && rule.sessions.has(sess))) return true;
     }
   }
   return false;
