@@ -485,7 +485,6 @@ function buildGoogleEvents(classes) {
   for (const cls of classes) {
     if (!cls.date || !cls.startTime || !cls.endTime) continue;
     const quiz = isQuiz(cls);
-    const mandatory = isMandatory(cls) || quiz; // quizzes are treated as mandatory
 
     const event = {
       iCalUID: eventUID(cls),
@@ -497,7 +496,9 @@ function buildGoogleEvents(classes) {
     if (cls.room) event.location = cls.room;
     const desc = eventDescription(cls);
     if (desc) event.description = desc;
-    if (mandatory) event.colorId = "11"; // tomato
+    // Quizzes → tomato (red); other mandatory classes → tangerine (amber).
+    if (quiz) event.colorId = "11";
+    else if (isMandatory(cls)) event.colorId = "6";
     if (quiz) {
       // Remind half a day and one hour before (mirrors the .ics VALARMs).
       event.reminders = {
