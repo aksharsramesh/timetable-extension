@@ -170,12 +170,13 @@ function sessionLabel(cls) {
   return isQuiz(cls) ? s : `Session ${s}`;
 }
 
-// The session number, only when the remark *is* one: "3" -> "3", "Session 3" ->
-// "3", "Quiz 1" -> "1". Free-text remarks (e.g. general events like
-// "BATCH MEET ... 2.30 PM") return "" so we don't mistake a stray digit for a
-// session number.
+// The leading session number when the remark starts with one: "3" -> "3",
+// "Session 3" -> "3", "Quiz 1" -> "1", "11-Guest" -> "11", "8-Debrief" -> "8".
+// The number must be followed by a separator (hyphen/space) or end of string, so
+// free-text remarks (e.g. general events like "BATCH MEET ... 2.30 PM") still
+// return "" and we don't mistake a stray digit for a session number.
 function sessionNumberOnly(cls) {
-  const m = String(cls.sessionNumber || "").trim().match(/^(?:session\s*|quiz\s*)?(\d+)$/i);
+  const m = String(cls.sessionNumber || "").trim().match(/^(?:session\s*|quiz\s*)?(\d+)(?:[-\s]|$)/i);
   return m ? m[1] : "";
 }
 
