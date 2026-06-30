@@ -1,10 +1,14 @@
 {
   "manifest_version": 3,
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAuafZU0qhIoZBSS346BAA1spedYR4qk/iJxPDKPhrMpaLYTYwhI12fztWnXyvX72AFz8kD0YYNOgRr9DeSHP5/nu112hOBtHkaTryZuFbnBe0OLlJxursbh7h906s3tNWFud6ExRWpiHRGlKFi25fgIfmxlSXuiH032lIwEUTxUEoAnnsfKUscxUjFmleIRfEsFL4JKu5npj8Aqeky1EbyhQL5ge6gNIWVLgeRiOZtT8Z4/bUzjD7U/zPIq0BHI3+94DFxlvDBU+8TH24PL3V+mILm5k4NKVHrn9NhnhsjGeuuZyUWazNL6ZDM2nMmizbRcueIjxrwtg2UiiIUn3jkQIDAQAB",
   "name": "SPJIMR Timetable",
   "version": "1.0",
   "description": "Shows this week's SPJIMR classes grouped by day, using your live TCS iON session.",
-  "permissions": ["storage"],
-  "host_permissions": ["https://g21.tcsion.com/*"],
+  "permissions": ["storage", "identity"],
+  "host_permissions": [
+    "https://g21.tcsion.com/*",
+    "https://www.googleapis.com/*"
+  ],
   "action": {
     "default_popup": "popup.html",
     "default_title": "SPJIMR Timetable",

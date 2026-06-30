@@ -36,6 +36,8 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px;
   padding: 12px 14px 8px;
   border-bottom: 1px solid var(--line);
   position: sticky;
@@ -68,6 +70,11 @@ body {
   padding: 4px 10px;
   border-radius: 6px;
   cursor: pointer;
+  white-space: nowrap;
+}
+
+.google-icon {
+  flex-shrink: 0;
 }
 
 .action-btn:hover {
@@ -150,6 +157,29 @@ body {
 
 .updated:empty {
   display: none;
+}
+
+.sync-status {
+  padding: 4px 14px 0;
+  font-size: 11px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.sync-status:empty {
+  display: none;
+}
+
+.sync-status--ok {
+  color: var(--present-fg);
+}
+
+.sync-status--warn {
+  color: var(--mandatory);
+}
+
+.sync-status--error {
+  color: var(--absent-fg);
 }
 
 .content {
