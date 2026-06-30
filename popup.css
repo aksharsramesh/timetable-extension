@@ -16,6 +16,9 @@
   --mandatory-soft: #fff7ed;
   --quiz: #dc2626;
   --quiz-soft: #fef2f2;
+  --dot-session: #2563eb;
+  --dot-mandatory: #eab308;
+  --dot-quiz: var(--quiz);
 }
 
 * {
@@ -91,6 +94,22 @@ body {
   display: inline-block;
   font-size: 13px;
   line-height: 1;
+}
+
+.cal-icon {
+  display: inline-block;
+  font-size: 13px;
+  line-height: 1;
+}
+
+.action-btn.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.action-btn.active:hover {
+  background: var(--accent);
 }
 
 .action-btn.spinning .refresh-icon {
@@ -276,4 +295,101 @@ body {
   color: var(--muted);
   font-size: 13px;
   line-height: 1.5;
+}
+
+/* --- calendar (dot) view --- */
+
+.cal-legend {
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  margin: 4px 0 10px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.cal-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.cal-weekdays,
+.cal-week {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.cal-weekdays {
+  margin-bottom: 4px;
+}
+
+.cal-weekday {
+  text-align: center;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+.cal-week {
+  margin-bottom: 4px;
+}
+
+.cal-day {
+  min-height: 46px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 3px 2px 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.cal-day--today {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.cal-month {
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--accent);
+  line-height: 1;
+}
+
+.cal-date {
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.cal-dots {
+  display: flex;
+  gap: 3px;
+  margin-top: auto;
+  padding-top: 3px;
+  min-height: 7px;
+}
+
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.dot--session {
+  background: var(--dot-session);
+}
+
+.dot--mandatory {
+  background: var(--dot-mandatory);
+}
+
+.dot--quiz {
+  background: var(--dot-quiz);
 }

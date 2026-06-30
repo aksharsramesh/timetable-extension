@@ -8,10 +8,16 @@ const prevBtn = document.getElementById("prevWeek");
 const nextBtn = document.getElementById("nextWeek");
 const exportBtn = document.getElementById("export");
 const syncBtn = document.getElementById("sync");
+const calendarBtn = document.getElementById("calendar");
+const weeknavEl = document.querySelector(".weeknav");
 const syncStatusEl = document.getElementById("syncStatus");
 
 // 0 = current week, -1 = last week, +1 = next week, etc.
 let weekOffset = 0;
+// "list" (weekly cards) or "calendar" (3-week dot grid).
+let viewMode = "list";
+// How many weeks the calendar shows, starting from the present week.
+const CALENDAR_WEEKS = 4;
 // Classes currently shown — used by the .ics export.
 let currentClasses = [];
 // Mandatory-class rules parsed from mandatory_classes.csv.
@@ -337,6 +343,151 @@ function load(force) {
   );
 }
 
+// --- calendar (dot) view -----------------------------------------------------
+
+const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+// Local YYYY-MM-DD (matches the date format the API/getWeekRange use as map keys).
+function isoLocal(d) {
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+// Each class falls into exactly one category: quiz wins, then mandatory, else session.
+function classCategory(cls) {
+  if (isQuiz(cls)) return "quiz";
+  if (isMandatory(cls)) return "mandatory";
+  return "session";
+}
+
+// Fetch one week's classes via the background cache; resolve to [] on any error so
+// missing/unfetchable weeks just render blank instead of failing the whole view.
+function fetchWeekClasses(offset, force) {
+  const week = getWeekRange(offset);
+  return new Promise((resolve) => {
+    chrome.runtime.sendMessage({ action: "getTimetable", force, week }, (res) =>
+      resolve(chrome.runtime.lastError || !res || res.error ? [] : res.timetable || [])
+    );
+  });
+}
+
+function renderCalendar(force) {
+  showState("Loading…");
+  setLoading(true);
+
+  const offsets = Array.from({ length: CALENDAR_WEEKS }, (_, i) => i);
+  Promise.all(offsets.map((o) => fetchWeekClasses(o, force))).then((weeks) => {
+    setLoading(false);
+    if (viewMode !== "calendar") return; // user toggled away while loading
+
+    // isoDate → { session, mandatory, quiz } flags.
+    const byDate = new Map();
+    for (const classes of weeks) {
+      for (const cls of classes) {
+        if (!cls.date) continue;
+        const flags = byDate.get(cls.date) || {};
+        flags[classCategory(cls)] = true;
+        byDate.set(cls.date, flags);
+      }
+    }
+
+    const todayISO = isoLocal(new Date());
+
+    contentEl.innerHTML = "";
+    const cal = document.createElement("div");
+    cal.className = "calendar";
+
+    const legend = document.createElement("div");
+    legend.className = "cal-legend";
+    for (const [cls, label] of [
+      ["session", "Session"],
+      ["mandatory", "Mandatory"],
+      ["quiz", "Quiz"],
+    ]) {
+      const item = document.createElement("span");
+      item.className = "cal-legend-item";
+      const dot = document.createElement("span");
+      dot.className = `dot dot--${cls}`;
+      item.appendChild(dot);
+      item.appendChild(document.createTextNode(label));
+      legend.appendChild(item);
+    }
+    cal.appendChild(legend);
+
+    const head = document.createElement("div");
+    head.className = "cal-weekdays";
+    for (const wd of WEEKDAYS) {
+      const c = document.createElement("div");
+      c.className = "cal-weekday";
+      c.textContent = wd;
+      head.appendChild(c);
+    }
+    cal.appendChild(head);
+
+    for (const offset of offsets) {
+      const monday = getWeekRange(offset).monday;
+      const row = document.createElement("div");
+      row.className = "cal-week";
+      for (let i = 0; i < 7; i++) {
+        const date = new Date(monday);
+        date.setDate(monday.getDate() + i);
+        const iso = isoLocal(date);
+
+        const cell = document.createElement("div");
+        cell.className = "cal-day" + (iso === todayISO ? " cal-day--today" : "");
+
+        // Month tag on the 1st of any month, and always on the calendar's very
+        // first cell — a single label, so the two coinciding can't double up.
+        const isFirstCell = offset === offsets[0] && i === 0;
+        if (date.getDate() === 1 || isFirstCell) {
+          const mon = document.createElement("div");
+          mon.className = "cal-month";
+          mon.textContent = MONTHS[date.getMonth()].toUpperCase();
+          cell.appendChild(mon);
+        }
+
+        const num = document.createElement("div");
+        num.className = "cal-date";
+        num.textContent = String(date.getDate());
+        cell.appendChild(num);
+
+        const dots = document.createElement("div");
+        dots.className = "cal-dots";
+        const flags = byDate.get(iso) || {};
+        for (const cat of ["session", "mandatory", "quiz"]) {
+          if (flags[cat]) {
+            const dot = document.createElement("span");
+            dot.className = `dot dot--${cat}`;
+            dots.appendChild(dot);
+          }
+        }
+        cell.appendChild(dots);
+        row.appendChild(cell);
+      }
+      cal.appendChild(row);
+    }
+
+    contentEl.appendChild(cal);
+  });
+}
+
+// Toggle between the weekly list and the calendar dot view.
+function setViewMode(mode) {
+  viewMode = mode;
+  const calendar = mode === "calendar";
+  calendarBtn.classList.toggle("active", calendar);
+  weeknavEl.style.display = calendar ? "none" : "";
+  if (calendar) {
+    // Per-week actions are ambiguous across the 3-week calendar.
+    exportBtn.disabled = true;
+    syncBtn.disabled = true;
+    updatedEl.textContent = "";
+    renderCalendar();
+  } else {
+    load(false);
+  }
+}
+
 // --- shared event semantics (used by both .ics export and Google sync) --------
 
 // Stable per-class id so re-exporting / re-syncing updates rather than duplicates.
@@ -540,7 +691,12 @@ nextBtn.addEventListener("click", () => {
   weekOffset += 1;
   load(false);
 });
-refreshBtn.addEventListener("click", () => load(true));
+refreshBtn.addEventListener("click", () =>
+  viewMode === "calendar" ? renderCalendar(true) : load(true)
+);
+calendarBtn.addEventListener("click", () =>
+  setViewMode(viewMode === "calendar" ? "list" : "calendar")
+);
 exportBtn.addEventListener("click", () => {
   if (!currentClasses.length) return;
   const week = getWeekRange(weekOffset);
