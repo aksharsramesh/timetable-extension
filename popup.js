@@ -165,11 +165,19 @@ function isQuiz(cls) {
   return /quiz/i.test(String(cls.sessionNumber || ""));
 }
 
-// "Quiz 1" for quizzes, "Session 3" for normal classes, "" if no remark.
+// A session is an exam when slot_remarks mentions "exam" (e.g. "END TERM EXAM",
+// "MID TERM EXAM", "RE-EXAM"). Exams are treated like quizzes: mandatory, red
+// highlighted card, and .ics reminders.
+function isExam(cls) {
+  return /exam/i.test(String(cls.sessionNumber || ""));
+}
+
+// "Quiz 1" / "END TERM EXAM" for quizzes and exams (raw remark), "Session 3" for
+// normal numbered classes, "" if no remark.
 function sessionLabel(cls) {
   const s = String(cls.sessionNumber || "").trim();
   if (!s) return "";
-  return isQuiz(cls) ? s : `Session ${s}`;
+  return isQuiz(cls) || isExam(cls) ? s : `Session ${s}`;
 }
 
 // The leading session number when the remark starts with one: "3" -> "3",
@@ -207,11 +215,12 @@ function formatDayHeading(daytype, isoDate) {
 
 function renderClass(cls) {
   const quiz = isQuiz(cls);
+  const exam = isExam(cls);
   const mandatory = isMandatory(cls);
 
   const row = document.createElement("div");
-  // Quizzes get their own (red) highlighted card; mandatory classes get the amber one.
-  row.className = quiz
+  // Quizzes and exams get the (red) highlighted card; mandatory classes get the amber one.
+  row.className = quiz || exam
     ? "class class--quiz"
     : mandatory
       ? "class class--mandatory"
@@ -227,11 +236,11 @@ function renderClass(cls) {
 
   const subject = document.createElement("div");
   subject.className = "class-subject";
-  if (quiz) {
-    // Plain red "QUIZ " prefix (no bubble), then the subject name.
+  if (quiz || exam) {
+    // Plain red "QUIZ "/"EXAM " prefix (no bubble), then the subject name.
     const prefix = document.createElement("span");
     prefix.className = "quiz-prefix";
-    prefix.textContent = "QUIZ ";
+    prefix.textContent = quiz ? "QUIZ " : "EXAM ";
     subject.appendChild(prefix);
     subject.appendChild(document.createTextNode(cls.subject));
   } else {
@@ -389,7 +398,8 @@ function buildICS(classes) {
       `${cls.date}-${cls.startTime}-${cls.shortcode}`.replace(/[^a-zA-Z0-9-]/g, "") +
       "@spjimr-timetable";
     const quiz = isQuiz(cls);
-    const mandatory = isMandatory(cls) || quiz; // quizzes are treated as mandatory
+    const exam = isExam(cls);
+    const mandatory = isMandatory(cls) || quiz || exam; // quizzes & exams are mandatory
     const desc = [
       cls.shortcode,
       cls.faculty,
@@ -410,9 +420,11 @@ function buildICS(classes) {
       ? num
         ? `Quiz ${num}: ${cls.subject}`
         : `Quiz: ${cls.subject}`
-      : mandatory
-        ? "★ " + namePart
-        : namePart;
+      : exam
+        ? `${sessionLabel(cls) || "Exam"}: ${cls.subject}`
+        : mandatory
+          ? "★ " + namePart
+          : namePart;
     lines.push(`SUMMARY:${icsEscape(summary)}`);
     if (cls.room) lines.push(`LOCATION:${icsEscape(cls.room)}`);
     if (desc) lines.push(`DESCRIPTION:${icsEscape(desc)}`);
@@ -422,13 +434,14 @@ function buildICS(classes) {
       lines.push("COLOR:tomato");
       lines.push("CATEGORIES:MANDATORY");
     }
-    if (quiz) {
-      lines.push("CATEGORIES:QUIZ");
-      // Remind half a day and one hour before the quiz.
+    if (quiz || exam) {
+      lines.push(quiz ? "CATEGORIES:QUIZ" : "CATEGORIES:EXAM");
+      // Remind half a day and one hour before the quiz/exam.
+      const reminder = quiz ? "Quiz reminder" : "Exam reminder";
       for (const trigger of ["-PT12H", "-PT1H"]) {
         lines.push("BEGIN:VALARM");
         lines.push("ACTION:DISPLAY");
-        lines.push("DESCRIPTION:Quiz reminder");
+        lines.push(`DESCRIPTION:${reminder}`);
         lines.push(`TRIGGER:${trigger}`);
         lines.push("END:VALARM");
       }
