@@ -543,8 +543,9 @@ function describeSyncResult(res) {
     ? new Date(res.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
     : "";
   const failed = res.failed ? `, ${res.failed} failed` : "";
+  const removed = res.removed ? `, ${res.removed} removed` : "";
   const n = res.imported || 0;
-  return `Synced ${n} event${n === 1 ? "" : "s"}${failed}${when ? ` · ${when}` : ""}`;
+  return `Synced ${n} event${n === 1 ? "" : "s"}${removed}${failed}${when ? ` · ${when}` : ""}`;
 }
 
 // --- wiring ------------------------------------------------------------------
@@ -570,9 +571,16 @@ syncBtn.addEventListener("click", () => {
     showSyncStatus("Nothing to sync for this week.");
     return;
   }
+  // The week's IST span, so the background can prune events for classes that
+  // dropped out of this week (cancelled / rescheduled) since the last sync.
+  const week = getWeekRange(weekOffset);
+  const window = {
+    timeMin: `${week.startdateTS}T00:00:00+05:30`,
+    timeMax: `${week.enddateTS}T23:59:59+05:30`,
+  };
   syncBtn.disabled = true;
   showSyncStatus("Syncing to Google Calendar…");
-  chrome.runtime.sendMessage({ action: "syncGoogleCalendar", events }, (res) => {
+  chrome.runtime.sendMessage({ action: "syncGoogleCalendar", events, window }, (res) => {
     syncBtn.disabled = false;
     if (chrome.runtime.lastError || !res) {
       // The popup can close when the consent window grabs focus, dropping this

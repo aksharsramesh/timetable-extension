@@ -13,8 +13,13 @@ const MAX_CACHED_WEEKS = 12;
 // chrome.identity.getRedirectURL() (https://<extension-id>.chromiumapp.org/).
 const GOOGLE_CLIENT_ID = "510821583415-n40ae1e179d55f4b65vescbv9gqkvtb9.apps.googleusercontent.com";
 const GOOGLE_SCOPE = "https://www.googleapis.com/auth/calendar.events";
-const CALENDAR_IMPORT_URL =
-  "https://www.googleapis.com/calendar/v3/calendars/primary/events/import";
+const CALENDAR_EVENTS_URL =
+  "https://www.googleapis.com/calendar/v3/calendars/primary/events";
+const CALENDAR_IMPORT_URL = `${CALENDAR_EVENTS_URL}/import`;
+
+// Every event we create carries this iCalUID suffix (see eventUID in popup.js),
+// so we can recognise our own events on the calendar and never touch others'.
+const UID_SUFFIX = "@spjimr-timetable";
 
 // Implicit flow (response_type=token) — no client secret, so nothing sensitive
 // ships in the extension. Tokens last ~1h and are re-fetched silently.
@@ -79,7 +84,56 @@ function importEvent(token, event) {
   });
 }
 
-async function syncToGoogle(events) {
+// List our previously-synced events within [timeMin, timeMax]. Filters the
+// calendar's events down to ones whose iCalUID is ours, so a class that TCS iON
+// silently dropped or moved (e.g. cancelled/rescheduled) can be cleaned up.
+async function listOurEvents(token, window) {
+  const ours = [];
+  let pageToken;
+  do {
+    const params = new URLSearchParams({
+      timeMin: window.timeMin,
+      timeMax: window.timeMax,
+      singleEvents: "true",
+      showDeleted: "false",
+      maxResults: "250",
+    });
+    if (pageToken) params.set("pageToken", pageToken);
+    const res = await fetch(`${CALENDAR_EVENTS_URL}?${params.toString()}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) throw new Error(`list failed: ${res.status}`);
+    const data = await res.json();
+    for (const ev of data.items || []) {
+      if (typeof ev.iCalUID === "string" && ev.iCalUID.endsWith(UID_SUFFIX)) ours.push(ev);
+    }
+    pageToken = data.nextPageToken;
+  } while (pageToken);
+  return ours;
+}
+
+// Delete our events in the synced window whose class is no longer in the fresh
+// data (their iCalUID isn't in keepUIDs). Returns how many were removed.
+async function deleteStaleEvents(token, keepUIDs, window) {
+  let existing;
+  try {
+    existing = await listOurEvents(token, window);
+  } catch (_) {
+    return 0; // couldn't list — skip cleanup rather than guess
+  }
+  let removed = 0;
+  for (const ev of existing) {
+    if (keepUIDs.has(ev.iCalUID)) continue; // still scheduled — leave it
+    const res = await fetch(`${CALENDAR_EVENTS_URL}/${ev.id}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (res.ok || res.status === 410) removed++; // 410 = already gone
+  }
+  return removed;
+}
+
+async function syncToGoogle(events, window) {
   let result;
   let token;
   try {
@@ -92,7 +146,9 @@ async function syncToGoogle(events) {
 
   let imported = 0;
   let failed = 0;
+  let removed = 0;
   let reauthed = false;
+  let authOk = true;
 
   for (let i = 0; i < events.length; i++) {
     let res = await importEvent(token, events[i]);
@@ -104,6 +160,7 @@ async function syncToGoogle(events) {
         token = await getAccessToken();
       } catch (_) {
         failed += events.length - i; // remaining events (incl. current) all fail
+        authOk = false;
         break;
       }
       res = await importEvent(token, events[i]);
@@ -112,7 +169,14 @@ async function syncToGoogle(events) {
     else failed++;
   }
 
-  result = { imported, failed, at: Date.now() };
+  // Remove events for classes that vanished from this week (cancelled / moved).
+  // Only when auth is healthy — otherwise we might delete events we couldn't re-add.
+  if (authOk && window && window.timeMin && window.timeMax) {
+    const keepUIDs = new Set(events.map((e) => e.iCalUID));
+    removed = await deleteStaleEvents(token, keepUIDs, window);
+  }
+
+  result = { imported, failed, removed, at: Date.now() };
   await chrome.storage.local.set({ lastGoogleSync: result });
   return result;
 }
@@ -193,7 +257,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   }
   if (message && message.action === "syncGoogleCalendar") {
     const events = message.events || [];
-    syncToGoogle(events)
+    syncToGoogle(events, message.window)
       .then(sendResponse)
       .catch(() =>
         sendResponse({ error: "SYNC_ERROR", imported: 0, failed: events.length, at: Date.now() })
