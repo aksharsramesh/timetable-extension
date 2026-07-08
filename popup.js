@@ -165,11 +165,12 @@ function isQuiz(cls) {
   return /quiz/i.test(String(cls.sessionNumber || ""));
 }
 
-// A session is an exam when slot_remarks mentions "exam" (e.g. "END TERM EXAM",
-// "MID TERM EXAM", "RE-EXAM"). Exams are treated like quizzes: mandatory, red
+// A session is an exam when slot_remarks mentions "exam" (e.g. "RE-EXAM") or an
+// end/mid-term evaluation — TCS iON sometimes writes just "END TERM" / "MID TERM"
+// without the word "exam". Exams are treated like quizzes: mandatory, red
 // highlighted card, and .ics reminders.
 function isExam(cls) {
-  return /exam/i.test(String(cls.sessionNumber || ""));
+  return /exam|(?:end|mid)[\s-]*term/i.test(String(cls.sessionNumber || ""));
 }
 
 // "Quiz 1" / "END TERM EXAM" for quizzes and exams (raw remark), "Session 3" for
