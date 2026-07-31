@@ -2,7 +2,7 @@
 // Mediates between the popup and the content script, and caches the timetable.
 
 const CACHE_MAX_AGE_MS = 30 * 60 * 1000; // 30 minutes
-const SITE_URL_PATTERN = "https://g21.tcsion.com/*";
+const SITE_URL_PATTERN = "https://spp.spjimr.org/*";
 
 const MAX_CACHED_WEEKS = 12;
 
@@ -24,7 +24,7 @@ async function getTimetable(force, week) {
     }
   }
 
-  // Find an open TCS iON tab to host the authenticated fetch.
+  // Find an open student-portal tab to host the authenticated fetch.
   const tabs = await chrome.tabs.query({ url: SITE_URL_PATTERN });
   if (!tabs.length) {
     return { error: "NOT_ON_SITE" };

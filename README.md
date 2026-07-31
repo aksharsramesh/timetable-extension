@@ -1,6 +1,6 @@
 # SPJIMR Timetable Extension
 
-A Chrome extension that shows your SPJIMR class schedule for the week — right from your browser toolbar — without having to dig through TCS iON.
+A Chrome extension that shows your SPJIMR class schedule for the week — right from your browser toolbar — without having to dig through the student portal.
 
 **Features:**
 - View this week's classes grouped by day
@@ -13,7 +13,7 @@ A Chrome extension that shows your SPJIMR class schedule for the week — right 
 ## Requirements
 
 - Google Chrome browser
-- A TCS iON account (your SPJIMR login)
+- An SPJIMR student portal login (`spp.spjimr.org`)
 
 ---
 
@@ -46,10 +46,10 @@ The SPJIMR Timetable icon will now appear in your Chrome toolbar.
 
 ## First-time setup
 
-Before the extension can show your timetable, it needs to read your session details from TCS iON once.
+The extension reads your timetable through your own logged-in portal session, so a portal tab needs to be open.
 
-1. Log in to TCS iON and navigate to your **Attendance** page
-2. Click the extension icon in your toolbar — it will sync automatically
+1. Log in to the SPJIMR student portal at `spp.spjimr.org` and keep the tab open
+2. Click the extension icon in your toolbar
 3. Your timetable will load
 
 ---
@@ -59,11 +59,11 @@ Before the extension can show your timetable, it needs to read your session deta
 Edit the `mandatory_classes.csv` file inside the extension folder. Each row is one subject:
 
 ```
-Short Code, Subject Name, Mandatory Classes
-OLS541-PBM, Management of Change, "3,5"
+Spec, Short Code, Subject Name, Mandatory Classes
+Strat, OLS541-PBM, Management of Change, "3,5"
 ```
 
-- **Short Code / Subject Name** — either one works to identify the subject
+- **Subject Name** — must match the subject name shown in the portal exactly. (The portal no longer sends short codes, so the Short Code column is kept for your own reference only — it does not match anything.)
 - **Mandatory Classes** — controls which sessions are marked:
   - `ALL` — every session of that subject is mandatory
   - `"3,5"` — only sessions 3 and 5 are mandatory

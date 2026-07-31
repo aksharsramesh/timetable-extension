@@ -16,10 +16,8 @@ let currentClasses = [];
 let mandatoryRules = [];
 
 const ERROR_MESSAGES = {
-  NOT_ON_SITE: "Please open TCS iON to load your timetable.",
-  PARAMS_MISSING:
-    "Open your TCS iON attendance page once to sync, then click Refresh.",
-  SESSION_EXPIRED: "Session expired. Please log in to TCS iON.",
+  NOT_ON_SITE: "Please open the SPJIMR student portal to load your timetable.",
+  SESSION_EXPIRED: "Session expired. Please log in to the SPJIMR student portal.",
   NETWORK_ERROR: "Could not load timetable. Check your connection.",
 };
 
@@ -160,17 +158,24 @@ function isMandatory(cls) {
   return false;
 }
 
-// A session is a quiz when slot_remarks (carried in sessionNumber) mentions "quiz".
-function isQuiz(cls) {
-  return /quiz/i.test(String(cls.sessionNumber || ""));
+// The portal classifies each session in `activityType` ("Session", "End Term",
+// "Quiz", …). That is the authoritative signal; the session title is checked too
+// because titles like "B&S End Term" sometimes carry it when the type does not.
+function classifiers(cls) {
+  return `${cls.activityType || ""} ${cls.sessionNumber || ""}`;
 }
 
-// A session is an exam when slot_remarks mentions "exam" (e.g. "RE-EXAM") or an
-// end/mid-term evaluation — TCS iON sometimes writes just "END TERM" / "MID TERM"
-// without the word "exam". Exams are treated like quizzes: mandatory, red
-// highlighted card, and .ics reminders.
+// A session is a quiz when either field mentions "quiz".
+function isQuiz(cls) {
+  return /quiz/i.test(classifiers(cls));
+}
+
+// A session is an exam when either field mentions "exam" (e.g. "RE-EXAM") or an
+// end/mid-term evaluation — these are often written as just "END TERM" /
+// "MID TERM" without the word "exam". Exams are treated like quizzes: mandatory,
+// red highlighted card, and .ics reminders.
 function isExam(cls) {
-  return /exam|(?:end|mid)[\s-]*term/i.test(String(cls.sessionNumber || ""));
+  return /exam|(?:end|mid)[\s-]*term/i.test(classifiers(cls));
 }
 
 // "Quiz 1" / "END TERM EXAM" for quizzes and exams (raw remark), "Session 3" for
@@ -395,9 +400,14 @@ function buildICS(classes) {
   for (const cls of classes) {
     if (!cls.date || !cls.startTime || !cls.endTime) continue;
 
+    // Prefer the portal's own record id — stable across weeks and unique, so a
+    // re-import updates rather than duplicates. Fall back to date/time for any
+    // entry that somehow arrives without one.
     const uid =
-      `${cls.date}-${cls.startTime}-${cls.shortcode}`.replace(/[^a-zA-Z0-9-]/g, "") +
-      "@spjimr-timetable";
+      (cls.id || `${cls.date}-${cls.startTime}-${cls.subject}`).replace(
+        /[^a-zA-Z0-9-]/g,
+        ""
+      ) + "@spjimr-timetable";
     const quiz = isQuiz(cls);
     const exam = isExam(cls);
     const mandatory = isMandatory(cls) || quiz || exam; // quizzes & exams are mandatory
