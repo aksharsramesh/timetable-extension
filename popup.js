@@ -112,7 +112,22 @@ function parseCSV(text) {
   return rows;
 }
 
+// Subject names are compared after normalising away the differences that don't
+// carry meaning: case, "&" vs "and", punctuation, and runs of whitespace.
+// "Business & Society" and "Business and  Society" both become
+// "BUSINESS AND SOCIETY". This is deliberately NOT fuzzy — two genuinely
+// different courses still never collide.
+function normalizeName(s) {
+  return String(s || "")
+    .toUpperCase()
+    .replace(/&/g, " AND ")
+    .replace(/[^A-Z0-9]+/g, " ")
+    .trim();
+}
+
 // Rows → rules: { code, subject, sessions }. sessions === null means "all".
+// `subject` is stored normalised; `code` is kept for diagnostics only — the
+// Salesforce portal sends no short code, so it no longer matches anything.
 function buildMandatoryRules(rows) {
   const rules = [];
   for (const r of rows) {
@@ -126,7 +141,7 @@ function buildMandatoryRules(rows) {
       sessionsRaw.toUpperCase() === "ALL"
         ? null // ALL → every session mandatory
         : new Set(sessionsRaw.split(",").map((s) => s.trim()).filter(Boolean));
-    rules.push({ code: code.toUpperCase(), subject: subject.toUpperCase(), sessions });
+    rules.push({ code, subject: normalizeName(subject), sessions });
   }
   return rules;
 }
@@ -142,20 +157,43 @@ async function loadMandatoryRules() {
   }
 }
 
+// A class is mandatory when a CSV row's Subject Name matches it and that row
+// either says ALL or lists this session's number.
 function isMandatory(cls) {
-  const sc = String(cls.shortcode || "").trim().toUpperCase();
-  const subj = String(cls.subject || "").trim().toUpperCase();
+  const subj = normalizeName(cls.subject);
+  if (!subj) return false;
   // Match the CSV session list against the extracted number ("12 simulation" ->
-  // "12", "11-Guest" -> "11"), not the raw remark, so qualified sessions still match.
+  // "12", "11-Guest" -> "11"), not the raw title, so qualified sessions still match.
   const sess = sessionNumberOnly(cls);
   for (const rule of mandatoryRules) {
-    const codeMatch = sc && rule.code && rule.code.includes(sc);
-    const subjMatch = subj && rule.subject && rule.subject === subj;
-    if (codeMatch || subjMatch) {
-      if (rule.sessions === null || (sess && rule.sessions.has(sess))) return true;
-    }
+    if (!rule.subject || rule.subject !== subj) continue;
+    if (rule.sessions === null || (sess && rule.sessions.has(sess))) return true;
   }
   return false;
+}
+
+/**
+ * Log which of this week's subjects the CSV actually recognises.
+ *
+ * Matching now hangs entirely on the subject name, and a row that matches
+ * nothing fails silently — indistinguishable from "no mandatory sessions this
+ * week". This makes the mismatch visible: open the popup's console and any
+ * subject reading "no CSV row" is either genuinely absent or spelled
+ * differently in mandatory_classes.csv.
+ */
+function logMandatoryDiagnostics(classes) {
+  const seen = new Map();
+  for (const cls of classes) {
+    const key = normalizeName(cls.subject);
+    if (!key || seen.has(key)) continue;
+    const rule = mandatoryRules.find((r) => r.subject === key);
+    seen.set(key, {
+      subject: cls.subject,
+      csv: rule ? `matched (${rule.code || "no code"})` : "no CSV row",
+      mandatory: rule ? (rule.sessions === null ? "ALL" : [...rule.sessions].join(",")) : "—",
+    });
+  }
+  if (seen.size) console.table([...seen.values()]);
 }
 
 // The portal classifies each session in `activityType` ("Session", "End Term",
@@ -287,6 +325,7 @@ function renderTimetable(classes, lastUpdated) {
 
   currentClasses = classes;
   exportBtn.disabled = false;
+  logMandatoryDiagnostics(classes);
 
   // Group by date, preserving the already-sorted order.
   const groups = [];

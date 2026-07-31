@@ -63,7 +63,7 @@ Spec, Short Code, Subject Name, Mandatory Classes
 Strat, OLS541-PBM, Management of Change, "3,5"
 ```
 
-- **Subject Name** — must match the subject name shown in the portal exactly. (The portal no longer sends short codes, so the Short Code column is kept for your own reference only — it does not match anything.)
+- **Subject Name** — must match the subject name shown in the portal. Capitalisation, `&` vs `and`, and extra spaces don't matter, but the wording must otherwise be the same. (The portal no longer sends short codes, so the Short Code column is kept for your own reference only — it does not match anything.)
 - **Mandatory Classes** — controls which sessions are marked:
   - `ALL` — every session of that subject is mandatory
   - `"3,5"` — only sessions 3 and 5 are mandatory
