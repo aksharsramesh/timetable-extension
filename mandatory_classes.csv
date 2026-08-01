@@ -1,15 +1,9 @@
 ﻿Spec,Short Code,Subject Name,Mandatory Classes
 GEN,GEN,General Event,ALL
-Strat,OLS541-PBM,Management of Change,"1,2,11,14"
-Strat,BS (STR520-PBM),Business & Society,"7,8"
 Core,OLS524-PBM,Capitalism and Its Critics: A History,NA
-IM,INF554-PDM,Agentic AI,"11,14,17,18"
-IM,ANA544-PDM,"Text, Image and Video Analytics using AI","9,15"
-IM,INF529-PDM,Transformation Through Cloud and Edge Computing,"4,5,6,16"
-IM,INF520-PDM,Architecting Solutions for the Digital Enterprise,"4,5,7,8,9,10,11,12,15,16,17,18"
-IM,INF542-PDM,Digital Platforms & Strategy,"17,18"
-Mark,MKT543-PDM,E-Commerce Retailing,NA
-Mark,MKT559-PDM,Analytics for Decision Making for Marketing,"7,8"
-Mark,MKT550-PDM,Retail Shopper Marketing,"1,2,7,8,9,11"
-Mark,MKT520-PDM,B2B Marketing,NA
-Fin,FIN541-PDM,Banking - Products & Customers,"1,2,6,11,12"
+,,Strategic Leadership Under Uncertainty,"17,18"
+,,Business Consulting,"3,4"
+,,Management Control System,"1,6,10,12"
+,,Strategic Innovation Models,"6,7,10,11"
+,,Systems and Design Thinking,10
+,,Development of Corporate Citizenship,ALL
