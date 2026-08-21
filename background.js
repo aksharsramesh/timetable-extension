@@ -21,6 +21,12 @@ const CALENDAR_IMPORT_URL = `${CALENDAR_EVENTS_URL}/import`;
 // so we can recognise our own events on the calendar and never touch others'.
 const UID_SUFFIX = "@spjimr-timetable";
 
+// The college also schedules some classes straight onto Google Calendar. Those invites
+// carry less than the portal gives us (no room, no session number, no mandatory marking),
+// so we decline them during sync — Google Calendar hides declined events by default, and
+// declining is reversible, unlike deleting.
+const COLLEGE_ORGANIZER_EMAILS = ["programme.scheduling@spjimr.org"]; // lowercase
+
 // Implicit flow (response_type=token) — no client secret, so nothing sensitive
 // ships in the extension. Tokens last ~1h and are re-fetched silently.
 function buildAuthUrl() {
@@ -84,11 +90,22 @@ function importEvent(token, event) {
   });
 }
 
-// List our previously-synced events within [timeMin, timeMax]. Filters the
-// calendar's events down to ones whose iCalUID is ours, so a class the portal
-// silently dropped or moved (e.g. cancelled/rescheduled) can be cleaned up.
-async function listOurEvents(token, window) {
-  const ours = [];
+// Is this one of the events we put on the calendar?
+function isOurEvent(ev) {
+  return typeof ev.iCalUID === "string" && ev.iCalUID.endsWith(UID_SUFFIX);
+}
+
+// Was this event put on the calendar by the college's scheduling account?
+function isCollegeEvent(ev) {
+  return [ev.organizer && ev.organizer.email, ev.creator && ev.creator.email].some(
+    (e) => typeof e === "string" && COLLEGE_ORGANIZER_EMAILS.includes(e.toLowerCase())
+  );
+}
+
+// Every event on the calendar within [timeMin, timeMax]. Callers pick out the ones
+// they care about — ours (for stale cleanup) and the college's (for declining).
+async function listEvents(token, window) {
+  const items = [];
   let pageToken;
   do {
     const params = new URLSearchParams({
@@ -104,25 +121,18 @@ async function listOurEvents(token, window) {
     });
     if (!res.ok) throw new Error(`list failed: ${res.status}`);
     const data = await res.json();
-    for (const ev of data.items || []) {
-      if (typeof ev.iCalUID === "string" && ev.iCalUID.endsWith(UID_SUFFIX)) ours.push(ev);
-    }
+    items.push(...(data.items || []));
     pageToken = data.nextPageToken;
   } while (pageToken);
-  return ours;
+  return items;
 }
 
 // Delete our events in the synced window whose class is no longer in the fresh
 // data (their iCalUID isn't in keepUIDs). Returns how many were removed.
-async function deleteStaleEvents(token, keepUIDs, window) {
-  let existing;
-  try {
-    existing = await listOurEvents(token, window);
-  } catch (_) {
-    return 0; // couldn't list — skip cleanup rather than guess
-  }
+async function deleteStaleEvents(token, items, keepUIDs) {
   let removed = 0;
-  for (const ev of existing) {
+  for (const ev of items) {
+    if (!isOurEvent(ev)) continue; // never touch events we didn't create
     if (keepUIDs.has(ev.iCalUID)) continue; // still scheduled — leave it
     const res = await fetch(`${CALENDAR_EVENTS_URL}/${ev.id}`, {
       method: "DELETE",
@@ -131,6 +141,44 @@ async function deleteStaleEvents(token, keepUIDs, window) {
     if (res.ok || res.status === 410) removed++; // 410 = already gone
   }
   return removed;
+}
+
+// Hide the college's own calendar entries for the synced week by declining them —
+// Google Calendar keeps declined events but hides them by default, so this is
+// reversible. Returns how many we newly hid.
+async function declineCollegeEvents(token, items) {
+  let declined = 0;
+  for (const ev of items) {
+    if (isOurEvent(ev) || !isCollegeEvent(ev)) continue;
+    const attendees = ev.attendees || [];
+    const self = attendees.find((a) => a.self);
+    let res;
+    if (!self) {
+      // Not an invite we can respond to — drop our copy instead.
+      res = await fetch(`${CALENDAR_EVENTS_URL}/${ev.id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok || res.status === 410) declined++; // 410 = already gone
+      continue;
+    }
+    if (self.responseStatus === "declined") continue; // already hidden
+    // Send the whole attendee list back so the others aren't dropped, and keep the
+    // organiser from being notified about a decline they don't need to see.
+    const patched = attendees.map((a) =>
+      a.self ? { ...a, responseStatus: "declined" } : a
+    );
+    res = await fetch(`${CALENDAR_EVENTS_URL}/${ev.id}?sendUpdates=none`, {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ attendees: patched }),
+    });
+    if (res.ok) declined++;
+  }
+  return declined;
 }
 
 async function syncToGoogle(events, window) {
@@ -147,6 +195,7 @@ async function syncToGoogle(events, window) {
   let imported = 0;
   let failed = 0;
   let removed = 0;
+  let declined = 0;
   let reauthed = false;
   let authOk = true;
 
@@ -169,14 +218,24 @@ async function syncToGoogle(events, window) {
     else failed++;
   }
 
-  // Remove events for classes that vanished from this week (cancelled / moved).
-  // Only when auth is healthy — otherwise we might delete events we couldn't re-add.
+  // Clean up the week: drop our events for classes that vanished (cancelled / moved)
+  // and hide the college's own entries. Only when auth is healthy — otherwise we
+  // might delete events we couldn't re-add. One listing serves both passes.
   if (authOk && window && window.timeMin && window.timeMax) {
-    const keepUIDs = new Set(events.map((e) => e.iCalUID));
-    removed = await deleteStaleEvents(token, keepUIDs, window);
+    let items = null;
+    try {
+      items = await listEvents(token, window);
+    } catch (_) {
+      items = null; // couldn't list — skip cleanup rather than guess
+    }
+    if (items) {
+      const keepUIDs = new Set(events.map((e) => e.iCalUID));
+      removed = await deleteStaleEvents(token, items, keepUIDs);
+      declined = await declineCollegeEvents(token, items);
+    }
   }
 
-  result = { imported, failed, removed, at: Date.now() };
+  result = { imported, failed, removed, declined, at: Date.now() };
   await chrome.storage.local.set({ lastGoogleSync: result });
   return result;
 }

@@ -593,8 +593,9 @@ function describeSyncResult(res) {
     : "";
   const failed = res.failed ? `, ${res.failed} failed` : "";
   const removed = res.removed ? `, ${res.removed} removed` : "";
+  const hidden = res.declined ? `, ${res.declined} hidden` : "";
   const n = res.imported || 0;
-  return `Synced ${n} event${n === 1 ? "" : "s"}${removed}${failed}${when ? ` · ${when}` : ""}`;
+  return `Synced ${n} event${n === 1 ? "" : "s"}${removed}${hidden}${failed}${when ? ` · ${when}` : ""}`;
 }
 
 // --- wiring ------------------------------------------------------------------
