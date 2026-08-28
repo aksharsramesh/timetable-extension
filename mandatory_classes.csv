@@ -1,9 +1,11 @@
-﻿Spec,Short Code,Subject Name,Mandatory Classes
+Spec,Short Code,Subject Name,Mandatory Classes
 GEN,GEN,General Event,ALL
 Core,OLS524-PBM,Capitalism and Its Critics: A History,NA
 ,,Strategic Leadership Under Uncertainty,"17,18"
 ,,Business Consulting,"3,4"
 ,,Management Control System,"1,6,10,12"
 ,,Strategic Innovation Models,"6,7,10,11"
-,,Systems and Design Thinking,10
+,,Systems and Design Thinking,"10,25"
 ,,Development of Corporate Citizenship,ALL
+,,Ethical Aspects of Business,"2,3,4,5"
+,,International Business,"1,3,11,12,16"
